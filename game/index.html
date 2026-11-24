@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Bay — Open-World Crime Game</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1210; font-family: 'Segoe UI', Arial, sans-serif; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hud { position: fixed; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); user-select: none; pointer-events: none; z-index: 5; }
+  #top-left { top: 14px; left: 16px; }
+  #hp-bar { width: 180px; height: 14px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.35); border-radius: 3px; overflow: hidden; }
+  #hp-fill { height: 100%; width: 100%; background: #37c978; }
+  #hp-text { font-size: 12px; margin-top: 2px; }
+  #money { font-size: 26px; font-weight: bold; color: #7dff9a; margin-top: 6px; }
+  #top-right { top: 14px; right: 16px; text-align: right; }
+  #stars { font-size: 26px; letter-spacing: 2px; color: #5a6270; }
+  #wanted-label { font-size: 11px; letter-spacing: 2px; color: rgba(255,255,255,.75); }
+  #objective { top: 84px; left: 16px; width: 300px; background: rgba(10,10,16,.62); border-left: 4px solid #ffd23c; padding: 10px 12px; border-radius: 2px; }
+  #objective-title { font-size: 15px; font-weight: bold; color: #ffd23c; }
+  #objective-text { font-size: 13px; line-height: 1.45; margin-top: 4px; color: #f2f2f2; }
+  #speed-box { bottom: 18px; left: 16px; font-size: 15px; }
+  #speed { font-size: 34px; font-weight: bold; }
+  #minimap-wrap { bottom: 16px; right: 16px; }
+  #minimap { width: 190px; height: 190px; border: 2px solid rgba(255,255,255,.4); border-radius: 4px; background: #14161c; }
+  #compass-arrow { position: fixed; left: 50%; top: 50%; width: 0; height: 0; margin: -110px 0 0 -14px; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 22px solid rgba(255,210,60,.9); z-index: 4; pointer-events: none; display: none; }
+  #crosshair { position: fixed; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border: 2px solid rgba(255,255,255,.85); border-radius: 50%; z-index: 4; pointer-events: none; }
+  #toast { position: fixed; left: 50%; top: 32%; transform: translateX(-50%); background: rgba(10,10,16,.78); color: #fff; font-size: 17px; padding: 10px 18px; border-radius: 4px; opacity: 0; transition: opacity .3s; z-index: 6; pointer-events: none; text-align: center; max-width: 70%; }
+  #hint { bottom: 18px; left: 50%; transform: translateX(-50%); font-size: 12px; color: rgba(255,255,255,.65); text-align: center; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(160deg, rgba(20,8,20,.82), rgba(60,20,8,.78)); z-index: 10; color: #fff; text-align: center; }
+  .overlay h1 { font-size: 64px; margin: 0; letter-spacing: 6px; color: #ffd23c; text-shadow: 0 0 24px rgba(255,180,60,.55), 0 3px 0 #7a2d8f; }
+  .overlay h2 { font-size: 20px; margin: 6px 0 18px; font-weight: normal; color: #ffd9a0; letter-spacing: 2px; }
+  .overlay p { max-width: 560px; line-height: 1.6; color: #f2e8dc; margin: 4px 0 18px; }
+  .overlay button { pointer-events: auto; cursor: pointer; font-size: 18px; padding: 12px 34px; margin: 6px; border: none; border-radius: 4px; background: #ffd23c; color: #221a08; font-weight: bold; }
+  .overlay button.secondary { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.5); }
+  .controls { font-size: 13px; color: rgba(255,255,255,.8); line-height: 1.9; margin-bottom: 10px; }
+  .controls b { color: #ffd23c; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Neon Bay: an open-world crime game. Drive, steal cars, dodge the police and finish five story jobs."></canvas>
+<div id="crosshair"></div>
+<div id="compass-arrow"></div>
+<div class="hud" id="top-left">
+  <div id="hp-bar"><div id="hp-fill"></div></div>
+  <div id="hp-text">100</div>
+  <div id="money">$0</div>
+</div>
+<div class="hud" id="top-right">
+  <div id="stars">☆☆☆☆☆</div>
+  <div id="wanted-label">WANTED</div>
+</div>
+<div class="hud" id="objective">
+  <div id="objective-title"></div>
+  <div id="objective-text"></div>
+</div>
+<div class="hud" id="speed-box" style="display:none"><span id="speed">0</span> km/h</div>
+<div class="hud" id="minimap-wrap"><canvas id="minimap" width="190" height="190"></canvas></div>
+<div class="hud" id="hint">WASD move &nbsp;·&nbsp; E enter / exit car &nbsp;·&nbsp; F punch &nbsp;·&nbsp; Click shoot &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; P save &nbsp;·&nbsp; M mute &nbsp;·&nbsp; drag mouse to look</div>
+<div id="toast"></div>
+<div class="overlay" id="menu">
+  <h1>NEON BAY</h1>
+  <h2>AN OPEN-WORLD CRIME STORY</h2>
+  <p>Rico just rolled into Neon Bay with empty pockets and a fast mouth. Steal cars, outrun the
+  Neon Bay PD, and finish five jobs for the crew — from a hot-wheeled getaway to the Bay Bank Job.</p>
+  <div class="controls">
+    <b>WASD</b> move / drive &nbsp;·&nbsp; <b>E</b> steal &amp; exit car &nbsp;·&nbsp; <b>F</b> punch &nbsp;·&nbsp; <b>Click</b> shoot<br>
+    <b>Shift</b> sprint &nbsp;·&nbsp; <b>P</b> save game &nbsp;·&nbsp; <b>M</b> mute &nbsp;·&nbsp; drag mouse to look around
+  </div>
+  <div>
+    <button id="btn-new">NEW GAME</button>
+    <button id="btn-continue" class="secondary" style="display:none">CONTINUE</button>
+  </div>
+  <p style="font-size:12px; color: rgba(255,255,255,.55)">A fan-made original. Not affiliated with Rockstar Games or GTA.</p>
+</div>
+<div class="overlay" id="gameover" style="display:none">
+  <h1 id="gameover-title">BUSTED</h1>
+  <h2 id="gameover-text"></h2>
+  <div>
+    <button id="btn-retry">TRY AGAIN</button>
+    <button id="btn-menu" class="secondary">MAIN MENU</button>
+  </div>
+</div>
+<p id="status" role="status" aria-live="polite"></p>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
